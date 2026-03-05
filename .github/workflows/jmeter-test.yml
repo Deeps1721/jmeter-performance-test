@@ -1,9 +1,9 @@
 name: JMeter Performance Test
 
 on:
+  workflow_dispatch:
   schedule:
     - cron: '0 2 * * *'
-  workflow_dispatch:
 
 jobs:
   jmeter-test:
@@ -11,54 +11,55 @@ jobs:
 
     steps:
 
-    - name: Checkout Repository
-      uses: actions/checkout@v4
+      - name: Checkout Repository
+        uses: actions/checkout@v4
 
-    - name: Create Results Folder
-      run: mkdir results
+      - name: Create Results Folder
+        run: mkdir -p results
 
-    - name: Run JMeter using Docker
-      run: |
-        docker run --rm \
+      - name: Run JMeter using Docker
+        run: |
+          docker run --rm \
           -v ${{ github.workspace }}:/tests \
           -w /tests \
-          justb4/jmeter:5.6.3 \
+          justb4/jmeter:latest \
           jmeter -n \
           -t Sample_RestAPIs.jmx \
           -l results/result.jtl \
           -e -o results/report
 
-    - name: Upload HTML Report
-      uses: actions/upload-artifact@v4
-      with:
-        name: jmeter-html-report
-        path: results/report
+      - name: Upload HTML Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: jmeter-html-report
+          path: results/report
 
-    - name: Upload JTL Result
-      uses: actions/upload-artifact@v4
-      with:
-        name: jmeter-results
-        path: results/result.jtl
-    - name: Send Email with Result
-      uses: dawidd6/action-send-mail@v3
-      with:
-        server_address: smtp.gmail.com
-        server_port: 465
-        username: ${{ secrets.EMAIL_USERNAME }}
-        password: ${{ secrets.EMAIL_PASSWORD }}
-        subject: JMeter Performance Test Result
-        to: deepak@thinktime.in
-        from: GitHub JMeter Bot
-        body: |
-          Hello,
+      - name: Upload JTL Result
+        uses: actions/upload-artifact@v4
+        with:
+          name: jmeter-results
+          path: results/result.jtl
 
-          Your scheduled JMeter performance test has completed.
+      - name: Send Email with Result
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          username: ${{ secrets.EMAIL_USERNAME }}
+          password: ${{ secrets.EMAIL_PASSWORD }}
+          subject: JMeter Performance Test Result
+          to: deepak@thinktime.in
+          from: GitHub JMeter Bot
+          body: |
+            Hello,
 
-          Download the HTML report from GitHub Actions artifacts.
+            Your scheduled JMeter performance test has completed.
 
-          Repository: ${{ github.repository }}
-          Run ID: ${{ github.run_id }}
+            Download the HTML report from GitHub Actions artifacts.
 
-          Regards,
-          GitHub Actions
-        attachments: results/result.jtl
+            Repository: ${{ github.repository }}
+            Run ID: ${{ github.run_id }}
+
+            Regards,
+            GitHub Actions
+          attachments: results/result.jtl
