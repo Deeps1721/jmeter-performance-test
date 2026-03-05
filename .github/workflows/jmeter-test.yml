@@ -2,11 +2,11 @@ name: JMeter Performance Test
 
 on:
   schedule:
-    - cron: '0 2 * * *'   # runs daily (7:30 AM IST)
+    - cron: '0 2 * * *'
   workflow_dispatch:
 
 jobs:
-  performance-test:
+  jmeter-test:
     runs-on: ubuntu-latest
 
     steps:
@@ -14,27 +14,19 @@ jobs:
     - name: Checkout Repository
       uses: actions/checkout@v4
 
-    - name: Setup Java
-      uses: actions/setup-java@v4
-      with:
-        distribution: 'temurin'
-        java-version: '11'
-
-    - name: Install Apache JMeter
-      run: |
-        wget https://archive.apache.org/dist/jmeter/binaries/apache-jmeter-5.6.3.tgz
-        tar -xzf apache-jmeter-5.6.3.tgz
-        mv apache-jmeter-5.6.3 jmeter
-
     - name: Create Results Folder
       run: mkdir results
 
-    - name: Run JMeter Test
+    - name: Run JMeter using Docker
       run: |
-        ./jmeter/bin/jmeter -n \
-        -t Sample_RestAPIs.jmx \
-        -l results/result.jtl \
-        -e -o results/report
+        docker run --rm \
+          -v ${{ github.workspace }}:/tests \
+          -w /tests \
+          justb4/jmeter:5.6.3 \
+          jmeter -n \
+          -t Sample_RestAPIs.jmx \
+          -l results/result.jtl \
+          -e -o results/report
 
     - name: Upload HTML Report
       uses: actions/upload-artifact@v4
@@ -47,7 +39,6 @@ jobs:
       with:
         name: jmeter-results
         path: results/result.jtl
-
     - name: Send Email with Result
       uses: dawidd6/action-send-mail@v3
       with:
