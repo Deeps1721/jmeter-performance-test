@@ -23,7 +23,7 @@ jobs:
           -v ${{ github.workspace }}:/tests \
           -w /tests \
           justb4/jmeter:latest \
-          jmeter -n \
+          -n \
           -t Sample_RestAPIs.jmx \
           -l results/result.jtl \
           -e -o results/report
