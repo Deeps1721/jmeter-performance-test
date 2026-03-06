@@ -49,7 +49,7 @@ jobs:
           name: jmeter-results
           path: results/result.jtl
 
-      - name: Parse JTL file and prepare email content
+            - name: Parse JTL file and prepare email content
         id: parse-results
         run: |
           declare -A total_time
@@ -58,86 +58,83 @@ jobs:
           declare -A last_code
           declare -A times
 
-        parsed_results="<table style='border-collapse: collapse; width: auto; max-width: 900px; margin: auto;'>
-        <tr style='background-color: yellow;'>
-          <th style='border:1px solid black;padding:8px;'>Label</th>
-          <th style='border:1px solid black;padding:8px;'>Avg Response Time</th>
-          <th style='border:1px solid black;padding:8px;'>95th Percentile</th>
-          <th style='border:1px solid black;padding:8px;'>Error Rate</th>
-          <th style='border:1px solid black;padding:8px;'>Throughput</th>
-          <th style='border:1px solid black;padding:8px;'>Response Code</th>
-          <th style='border:1px solid black;padding:8px;'>Status</th>
-          </tr>"
+          parsed_results="<table style='border-collapse:collapse;width:auto;max-width:900px;margin:auto;'>"
+          parsed_results="$parsed_results<tr style='background-color:yellow;'>"
+          parsed_results="$parsed_results<th style='border:1px solid black;padding:8px;'>Label</th>"
+          parsed_results="$parsed_results<th style='border:1px solid black;padding:8px;'>Avg Response Time</th>"
+          parsed_results="$parsed_results<th style='border:1px solid black;padding:8px;'>95th Percentile</th>"
+          parsed_results="$parsed_results<th style='border:1px solid black;padding:8px;'>Error Rate</th>"
+          parsed_results="$parsed_results<th style='border:1px solid black;padding:8px;'>Throughput</th>"
+          parsed_results="$parsed_results<th style='border:1px solid black;padding:8px;'>Response Code</th>"
+          parsed_results="$parsed_results<th style='border:1px solid black;padding:8px;'>Status</th>"
+          parsed_results="$parsed_results</tr>"
 
           overall_status="Successful"
-      
+
           while IFS=, read -r timeStamp elapsed label responseCode responseMessage threadName dataType success failureMessage bytes sentBytes grpThreads allThreads URL Latency IdleTime Connect
           do
-      
+
             if [ "$label" == "label" ]; then
               continue
             fi
-      
+
             total_time[$label]=$(( ${total_time[$label]:-0} + elapsed ))
             count[$label]=$(( ${count[$label]:-0} + 1 ))
-      
             times[$label]="${times[$label]} $elapsed"
-      
             last_code[$label]=$responseCode
-      
+
             if [[ ! "$responseCode" =~ ^2 ]]; then
               errors[$label]=$(( ${errors[$label]:-0} + 1 ))
             fi
-      
+
           done < results/result.jtl
-      
-      
+
+
           for label in "${!count[@]}"
           do
-      
+
             total=${total_time[$label]}
             c=${count[$label]}
+
             avg=$(printf "%.2f" $(echo "$total / $c / 1000" | bc -l))
-      
+
             sorted=$(echo ${times[$label]} | tr ' ' '\n' | sort -n)
-      
             p95_index=$(( (95 * c + 99) / 100 ))
             p95=$(echo "$sorted" | sed -n "${p95_index}p")
             p95=$(printf "%.2f" $(echo "$p95 / 1000" | bc -l))
-      
+
             err=${errors[$label]:-0}
             error_rate=$(printf "%.2f" $(echo "$err * 100 / $c" | bc -l))
-      
+
             throughput=$(printf "%.2f" $(echo "$c / 60" | bc -l))
-      
+
             code=${last_code[$label]}
-      
+
             if [[ "$code" =~ ^2 ]]; then
               status="<span style='color:green;'>Success</span>"
             else
               status="<span style='color:red;'>Failure</span>"
               overall_status="Failure"
             fi
-      
-            parsed_results="$parsed_results
-            <tr>
-            <td style='border:1px solid black;padding:8px;'>$label</td>
-            <td style='border:1px solid black;padding:8px;'>${avg} sec</td>
-            <td style='border:1px solid black;padding:8px;'>${p95} sec</td>
-            <td style='border:1px solid black;padding:8px;'>${error_rate}%</td>
-            <td style='border:1px solid black;padding:8px;'>${throughput} req/sec</td>
-            <td style='border:1px solid black;padding:8px;'>$code</td>
-            <td style='border:1px solid black;padding:8px;'>$status</td>
-            </tr>"
-      
+
+            parsed_results="$parsed_results<tr>"
+            parsed_results="$parsed_results<td style='border:1px solid black;padding:8px;'>$label</td>"
+            parsed_results="$parsed_results<td style='border:1px solid black;padding:8px;'>${avg} sec</td>"
+            parsed_results="$parsed_results<td style='border:1px solid black;padding:8px;'>${p95} sec</td>"
+            parsed_results="$parsed_results<td style='border:1px solid black;padding:8px;'>${error_rate}%</td>"
+            parsed_results="$parsed_results<td style='border:1px solid black;padding:8px;'>${throughput} req/sec</td>"
+            parsed_results="$parsed_results<td style='border:1px solid black;padding:8px;'>$code</td>"
+            parsed_results="$parsed_results<td style='border:1px solid black;padding:8px;'>$status</td>"
+            parsed_results="$parsed_results</tr>"
+
           done
-      
+
           parsed_results="$parsed_results</table>"
-      
+
           echo "parsed_results<<EOF" >> $GITHUB_ENV
           echo "$parsed_results" >> $GITHUB_ENV
           echo "EOF" >> $GITHUB_ENV
-      
+
           echo "overall_status=$overall_status" >> $GITHUB_ENV
 
       - name: Send Email with Result
