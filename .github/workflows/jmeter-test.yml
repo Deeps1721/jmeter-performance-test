@@ -77,12 +77,7 @@ jobs:
             if [ "$label" == "label" ]; then
               continue
             fi
-            URL=$(echo "$URL" | xargs)
-
-            if [[ "$URL" == "null" ]]; then
-              continue
-            fi
-
+            
             total_time[$label]=$(( ${total_time[$label]:-0} + elapsed ))
             count[$label]=$(( ${count[$label]:-0} + 1 ))
             times[$label]="${times[$label]} $elapsed"
