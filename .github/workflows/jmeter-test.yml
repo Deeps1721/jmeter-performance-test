@@ -77,7 +77,9 @@ jobs:
             if [ "$label" == "label" ]; then
               continue
             fi
-            if [ "$URL" == "null" ] || [ -z "$URL" ]; then
+            URL=$(echo "$URL" | xargs)
+
+            if [[ "$URL" == "null" ]]; then
               continue
             fi
 
