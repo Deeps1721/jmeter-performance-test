@@ -3,7 +3,7 @@ name: JMeter Performance Test
 on:
   workflow_dispatch:
   schedule:
-    - cron: '0 2 * * *'
+    - cron: '30 3 * * *' 
 
 jobs:
   jmeter-test:
@@ -16,7 +16,16 @@ jobs:
 
       - name: Create Results Folder
         run: mkdir -p results
-
+        
+      - name: Set run details
+        run: |
+          run_number=$(($GITHUB_RUN_NUMBER - 1))
+          run_date=$(TZ=Asia/Kolkata date +'%Y-%m-%d')
+          run_time=$(TZ=Asia/Kolkata date +'%I:%M %p IST')
+          echo "run_number=$run_number" >> $GITHUB_ENV
+          echo "run_date=$run_date" >> $GITHUB_ENV
+          echo "run_time=$run_time" >> $GITHUB_ENV
+    
       - name: Run JMeter using Docker
         run: |
           docker run --rm \
@@ -40,6 +49,46 @@ jobs:
           name: jmeter-results
           path: results/result.jtl
 
+      - name: Parse JTL file and prepare email content
+        id: parse-results
+        run: |
+          parsed_results="<table style='border-collapse: collapse; width: auto; max-width: 700px; margin: auto;'><tr style='background-color: yellow;'><th style='border: 1px solid black; padding: 8px; text-align: left;'>PageName</th><th style='border: 1px solid black; padding: 8px;'>Response Time</th><th style='border: 1px solid black; padding: 8px;'>Status</th></tr>"
+          overall_status="Successful"
+          failed_labels=""
+
+          while IFS=, read -r timeStamp elapsed label responseCode responseMessage threadName dataType success failureMessage bytes sentBytes grpThreads allThreads URL Latency IdleTime Connect; do
+            if [ "$label" != "label" ]; then
+              if [ $elapsed -le 5000 ]; then
+                result="<span style='color: green;'>Pass</span>"
+              else
+                result="<span style='color: red;'>Fail</span>"
+                overall_status="Failure"
+                failed_labels="$failed_labels$label, "
+              fi
+
+              response_time=$(printf "%.2f" $(echo "$elapsed / 1000" | bc -l))
+
+              parsed_results="$parsed_results<tr><td style='border: 1px solid black; padding: 8px; text-align: left;'>$label</td><td style='border: 1px solid black; padding: 8px;'>${response_time} sec</td><td style='border: 1px solid black; padding: 8px;'>$result</td></tr>"
+            fi
+          done < results/result.jtl
+
+          failed_labels="${failed_labels%,*}"
+          parsed_results="$parsed_results</table>"
+
+          if [ "$overall_status" = "Successful" ]; then
+            summary="All transactions met the response time SLA of 5 seconds, indicating optimal performance."
+          else
+            summary="Please note that the following transactions failed to meet the performance criteria with a response time greater than 5 seconds: $failed_labels."
+          fi
+
+          echo "parsed_results<<EOF" >> $GITHUB_ENV
+          echo "$parsed_results" >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
+
+          echo "overall_status=$overall_status" >> $GITHUB_ENV
+          echo "failed_labels=$failed_labels" >> $GITHUB_ENV
+          echo "summary=$summary" >> $GITHUB_ENV
+
       - name: Send Email with Result
         uses: dawidd6/action-send-mail@v3
         with:
@@ -47,19 +96,32 @@ jobs:
           server_port: 465
           username: ${{ secrets.EMAIL_USERNAME }}
           password: ${{ secrets.EMAIL_PASSWORD }}
-          subject: JMeter Performance Test Result
+          subject: "Solarion Health Report - #${{ env.run_number }} - ${{ env.run_date }} ${{ env.run_time }} - Status: ${{ env.overall_status }}"
+          html_body: |
+            <html>
+            <body style="font-family: Calibri, sans-serif;">
+
+              <p>Please find the details of Application responsiveness:</p>
+
+              ${{ env.parsed_results }}
+
+              <p><b>Build Information:</b></p>
+              <p>
+              Build Health Status: ${{ env.overall_status }} <br>
+              Build Date and Time: ${{ env.run_date }} ${{ env.run_time }}
+              </p>
+
+              <p><b>Summary:</b></p>
+              <p>${{ env.summary }}</p>
+
+              <p>Thanks,<br>QA Team</p>
+
+              <p style="color: gray;">Note: This is an auto-generated email.</p>
+
+            </body>
+            </html>
+
           to: deepak@thinktime.in
-          from: GitHub JMeter Bot
-          body: |
-            Hello,
-
-            Your scheduled JMeter performance test has completed.
-
-            Download the HTML report from GitHub Actions artifacts.
-
-            Repository: ${{ github.repository }}
-            Run ID: ${{ github.run_id }}
-
-            Regards,
-            GitHub Actions
+          from: ${{ secrets.EMAIL_USERNAME }}
+          priority: normal
           attachments: results/result.jtl
