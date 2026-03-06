@@ -33,7 +33,7 @@ jobs:
           -w /tests \
           justb4/jmeter:latest \
           -n \
-          -t Sample_RestAPIs.jmx \
+          -t SolarionAPIs_V2.jmx \
           -l results/result.jtl \
           -e -o results/report
 
