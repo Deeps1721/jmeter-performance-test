@@ -77,6 +77,9 @@ jobs:
             if [ "$label" == "label" ]; then
               continue
             fi
+            if [ "$URL" == "null" ] || [ -z "$URL" ]; then
+              continue
+            fi
 
             total_time[$label]=$(( ${total_time[$label]:-0} + elapsed ))
             count[$label]=$(( ${count[$label]:-0} + 1 ))
@@ -86,6 +89,7 @@ jobs:
             if [[ ! "$responseCode" =~ ^2 ]]; then
               errors[$label]=$(( ${errors[$label]:-0} + 1 ))
             fi
+            
 
           done < results/result.jtl
 
