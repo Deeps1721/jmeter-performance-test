@@ -49,7 +49,7 @@ jobs:
           name: jmeter-results
           path: results/result.jtl
 
-            - name: Parse JTL file and prepare email content
+      - name: Parse JTL file and prepare email content
         id: parse-results
         run: |
           declare -A total_time
